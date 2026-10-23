@@ -1,0 +1,768 @@
+@extends('layouts.app')
+
+@section('title', 'Members')
+@section('page', 'Members')
+
+@section('content')
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h4 class="mb-0">Members</h4>
+        <div class="d-flex gap-2">
+            <button type="button" class="btn btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#bulkMemberUploadModal">
+                <i class="bi bi-upload me-1"></i>Bulk Upload
+            </button>
+            <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#memberModal">
+                <i class="bi bi-plus-lg me-1"></i>Add Member
+            </button>
+        </div>
+    </div>
+
+    <div id="toastArea" class="position-fixed top-0 end-0 p-3" style="z-index: 1055;"></div>
+
+    <div id="alertArea" class="alert alert-danger d-none" role="alert"></div>
+    <div id="emptyArea" class="alert alert-info d-none" role="alert">
+        <i class="bi bi-info-circle me-1"></i>No members found.
+    </div>
+    <div id="loadingArea" class="text-center py-4 d-none">
+        <div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div>
+        <p class="text-muted mt-2 mb-0">Loading members...</p>
+    </div>
+
+    <div class="card shadow-sm">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Name</th>
+                            <th>Email</th>
+                            <th>Phone</th>
+                            <th>Address</th>
+                            <th>Membership Date</th>
+                            <th>Status</th>
+                            <th class="text-end">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="membersTableBody"></tbody>
+                </table>
+            </div>
+        </div>
+        <div class="card-footer bg-white" id="membersFooter">
+            <nav aria-label="Member pages">
+                <ul class="pagination pagination-sm justify-content-center mb-0" id="pagination"></ul>
+            </nav>
+        </div>
+    </div>
+{{-- ============ Add / Edit Member Modal ============ --}}
+    <div class="modal fade" id="memberModal" tabindex="-1" aria-labelledby="memberModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="memberModalLabel">Add Member</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="modalAlert" class="alert alert-danger d-none" role="alert"></div>
+                    <div id="modalSuccess" class="alert alert-success d-none" role="alert"></div>
+                    <form id="memberForm" novalidate>
+                        <input type="hidden" id="memberId">
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label for="full_name" class="form-label">Full Name <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control" id="full_name" maxlength="255" required>
+                                <div class="invalid-feedback" id="full_nameError"></div>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="email" class="form-label">Email <span class="text-danger">*</span></label>
+                                <input type="email" class="form-control" id="email" maxlength="255" required>
+                                <div class="invalid-feedback" id="emailError"></div>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="phone" class="form-label">Phone <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control" id="phone" maxlength="20" required>
+                                <div class="invalid-feedback" id="phoneError"></div>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="status" class="form-label">Status <span class="text-danger">*</span></label>
+                                <select class="form-select" id="status">
+                                    <option value="Active">Active</option>
+                                    <option value="Inactive">Inactive</option>
+                                </select>
+                                <div class="invalid-feedback" id="statusError"></div>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="membership_date" class="form-label">Membership Date <span class="text-danger">*</span></label>
+                                <input type="date" class="form-control" id="membership_date" required>
+                                <div class="invalid-feedback" id="membership_dateError"></div>
+                            </div>
+                            <div class="col-md-12">
+                                <label for="address" class="form-label">Address <span class="text-danger">*</span></label>
+                                <textarea class="form-control" id="address" rows="2" required></textarea>
+                                <div class="invalid-feedback" id="addressError"></div>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary" id="saveMemberBtn">
+                        <span class="spinner-border spinner-border-sm d-none me-1" id="saveSpinner"></span>
+                        <i class="bi bi-check2 me-1"></i>Save Member
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {{-- ============ Delete Confirmation Modal ============ --}}
+    <div class="modal fade" id="deleteModal" tabindex="-1" aria-labelledby="deleteModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="deleteModalLabel">Delete Member</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p>Are you sure you want to delete this member?</p>
+                    <div id="deleteAlert" class="alert alert-danger d-none" role="alert"></div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-danger" id="confirmDeleteBtn">
+                        <span class="spinner-border spinner-border-sm d-none me-1" id="deleteSpinner"></span>
+                        <i class="bi bi-trash me-1"></i>Delete
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bulk Upload Modal -->
+    <div class="modal fade" id="bulkMemberUploadModal" tabindex="-1" aria-labelledby="bulkMemberUploadModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="bulkMemberUploadModalLabel">
+                        <i class="bi bi-upload me-1"></i>Bulk Upload Members
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="text-muted">
+                        Import multiple members at once by uploading a CSV file.
+                        Every row is validated first &mdash; if any row is invalid, no members are imported.
+                    </p>
+
+                    <div class="mb-3">
+                        <button type="button" class="btn btn-outline-primary btn-sm" id="memberDownloadCsvTemplate">
+                            <i class="bi bi-download me-1"></i>Download CSV Template
+                        </button>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="memberBulkCsvFile" class="form-label">CSV file</label>
+                        <input class="form-control" type="file" id="memberBulkCsvFile" accept=".csv">
+                        <div class="form-text">Only .csv files are accepted.</div>
+                    </div>
+
+                    <div class="mb-2">
+                        <span class="d-block fw-semibold small mb-1">Expected columns:</span>
+                        <code class="d-block small">full_name,email,phone,address,membership_date,status</code>
+                    </div>
+
+                    <div id="memberBulkErrors" class="alert alert-danger d-none mt-3 mb-0" style="max-height: 220px; overflow-y: auto;" role="alert"></div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary" id="memberBulkImportBtn">
+                        <span class="spinner-border spinner-border-sm me-1 d-none" id="memberBulkImportSpinner" role="status"></span>
+                        <span id="memberBulkImportLabel">Upload &amp; Import</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+<script>
+        (function () {
+            'use strict';
+            const TOKEN_KEY = 'library_auth_token';
+            const USER_KEY = 'library_auth_user';
+            const token = localStorage.getItem(TOKEN_KEY);
+
+            if (!token) {
+                window.location.href = '{{ route("login") }}';
+                return;
+            }
+
+            const tbody = document.getElementById('membersTableBody');
+            const paginationEl = document.getElementById('pagination');
+            const alertArea = document.getElementById('alertArea');
+            const loadingArea = document.getElementById('loadingArea');
+            const emptyArea = document.getElementById('emptyArea');
+
+            const form = document.getElementById('memberForm');
+            const memberIdInput = document.getElementById('memberId');
+            const modalTitle = document.getElementById('memberModalLabel');
+            const modalAlert = document.getElementById('modalAlert');
+            const modalSuccess = document.getElementById('modalSuccess');
+            const saveBtn = document.getElementById('saveMemberBtn');
+            const saveSpinner = document.getElementById('saveSpinner');
+            const deleteAlert = document.getElementById('deleteAlert');
+            const confirmDeleteBtn = document.getElementById('confirmDeleteBtn');
+            const deleteSpinner = document.getElementById('deleteSpinner');
+
+            const FIELD_IDS = ['full_name', 'email', 'phone', 'status', 'membership_date', 'address'];
+
+            let currentPage = 1;
+            let currentMeta = null;
+            let pendingDeleteId = null;
+            let memberModal = null;
+            let deleteModal = null;
+
+            // Bootstrap's JS bundle is included AFTER @yield('content') in the
+            // layout, so `window.bootstrap` is not yet defined when this inline
+            // script first runs. Create modal instances lazily instead of at
+            // init time, so a missing `bootstrap` global can never prevent
+            // loadMembers() from running on initial page load.
+            function getMemberModal() {
+                if (memberModal) { return memberModal; }
+                try {
+                    if (window.bootstrap && window.bootstrap.Modal) {
+                        memberModal = new bootstrap.Modal(document.getElementById('memberModal'));
+                    }
+                } catch (e) {
+                    console.error('memberModal init failed:', e);
+                }
+                return memberModal;
+            }
+            function getDeleteModal() {
+                if (deleteModal) { return deleteModal; }
+                try {
+                    if (window.bootstrap && window.bootstrap.Modal) {
+                        deleteModal = new bootstrap.Modal(document.getElementById('deleteModal'));
+                    }
+                } catch (e) {
+                    console.error('deleteModal init failed:', e);
+                }
+                return deleteModal;
+            }
+
+            function fieldInput(name) { return document.getElementById(name); }
+            function fieldError(name) { return document.getElementById(name + 'Error'); }
+
+            // ---------- Helpers ----------
+            function showToast(message, type) {
+                try {
+                    if (!(window.bootstrap && window.bootstrap.Toast)) { return; }
+                    const toastArea = document.getElementById('toastArea');
+                    const cls = type === 'success' ? 'text-bg-success' : 'text-bg-danger';
+                    const el = document.createElement('div');
+                    el.className = 'toast align-items-center border-0 ' + cls + ' shadow';
+                    el.innerHTML = '<div class="d-flex"><div class="toast-body">' + message + '</div>' +
+                        '<button type="button" class="btn-close me-2" data-bs-dismiss="toast" aria-label="Close"></button></div>';
+                    toastArea.appendChild(el);
+                    setTimeout(function () {
+                        try {
+                            if (!(window.bootstrap && window.bootstrap.Toast)) { el.remove(); return; }
+                            const t = new bootstrap.Toast(el);
+                            t.show();
+                            setTimeout(function () { el.remove(); }, 3000);
+                        } catch (e) {
+                            console.error('showToast failed:', e);
+                            el.remove();
+                        }
+                    }, 50);
+                } catch (e) {
+                    console.error('showToast failed:', e);
+                }
+            }
+
+            function showAlert(message) {
+                alertArea.textContent = message;
+                alertArea.classList.remove('d-none');
+            }
+            function hideAlert() { alertArea.classList.add('d-none'); }
+
+            function logOut() {
+                localStorage.removeItem(TOKEN_KEY);
+                localStorage.removeItem(USER_KEY);
+                window.location.href = '{{ route("login") }}';
+            }
+
+            // Last-resort modal close used if the Bootstrap instance fails,
+            // so a successful save never leaves the modal stuck open.
+            function forceCloseModal(id) {
+                try {
+                    const el = document.getElementById(id);
+                    if (!el) { return; }
+                    el.classList.remove('show');
+                    el.style.display = 'none';
+                    el.setAttribute('aria-hidden', 'true');
+                    document.body.classList.remove('modal-open');
+                    document.body.style.removeProperty('padding-right');
+                    const backdrop = document.querySelector('.modal-backdrop');
+                    if (backdrop) { backdrop.remove(); }
+                } catch (e) {
+                    console.error('forceCloseModal failed:', e);
+                }
+            }
+
+            function esc(value) {
+                const div = document.createElement('div');
+                div.textContent = (value === null || value === undefined) ? '' : String(value);
+                return div.innerHTML;
+            }
+
+            function statusBadge(status) {
+                return status === 'Active'
+                    ? '<span class="badge text-bg-success">Active</span>'
+                    : '<span class="badge text-bg-secondary">Inactive</span>';
+            }
+// ---------- List + Pagination ----------
+            function renderRows(members) {
+                tbody.innerHTML = members.map(function (m) {
+                    return '<tr>' +
+                        '<td>' + esc(m.full_name) + '</td>' +
+                        '<td>' + esc(m.email) + '</td>' +
+                        '<td>' + esc(m.phone) + '</td>' +
+                        '<td>' + esc(m.address) + '</td>' +
+                        '<td>' + esc(m.membership_date) + '</td>' +
+                        '<td>' + statusBadge(m.status) + '</td>' +
+                        '<td class="text-end">' +
+                            '<button type="button" class="btn btn-sm btn-outline-primary editMemberBtn" data-id="' + m.id + '" title="Edit"><i class="bi bi-pencil"></i></button> ' +
+                            '<button type="button" class="btn btn-sm btn-outline-danger deleteMemberBtn" data-id="' + m.id + '" data-name="' + esc(m.full_name) + '" title="Delete"><i class="bi bi-trash"></i></button>' +
+                        '</td>' +
+                    '</tr>';
+                }).join('');
+
+                tbody.querySelectorAll('.editMemberBtn').forEach(function (btn) {
+                    btn.addEventListener('click', function () { openEdit(parseInt(btn.getAttribute('data-id'), 10)); });
+                });
+                tbody.querySelectorAll('.deleteMemberBtn').forEach(function (btn) {
+                    btn.addEventListener('click', function () {
+                        pendingDeleteId = parseInt(btn.getAttribute('data-id'), 10);
+                        document.getElementById('deleteModalLabel').textContent = 'Delete Member: ' + btn.getAttribute('data-name');
+                        var delModal = getDeleteModal();
+                        if (delModal) { delModal.show(); }
+                    });
+                });
+            }
+
+            function renderPagination(meta) {
+                currentMeta = meta;
+                if (!meta || meta.last_page <= 1) {
+                    paginationEl.innerHTML = '<li class="page-item disabled"><span class="page-link">All members shown</span></li>';
+                    return;
+                }
+                const prevDisabled = (meta.current_page <= 1) ? ' disabled' : '';
+                const nextDisabled = (meta.current_page >= meta.last_page) ? ' disabled' : '';
+                let html = '';
+                html += '<li class="page-item' + prevDisabled + '">' +
+                    '<button type="button" class="page-link pageNav" data-page="' + (meta.current_page - 1) + '">Previous</button></li>';
+                html += '<li class="page-item disabled"><span class="page-link">Page ' + meta.current_page + ' of ' + meta.last_page + '</span></li>';
+                html += '<li class="page-item' + nextDisabled + '">' +
+                    '<button type="button" class="page-link pageNav" data-page="' + (meta.current_page + 1) + '">Next</button></li>';
+                paginationEl.innerHTML = html;
+                paginationEl.querySelectorAll('.pageNav').forEach(function (btn) {
+                    btn.addEventListener('click', function () {
+                        const p = parseInt(btn.getAttribute('data-page'), 10);
+                        if (p >= 1 && p <= currentMeta.last_page) { currentPage = p; loadMembers(); }
+                    });
+                });
+            }
+
+            async function loadMembers() {
+                hideAlert();
+                emptyArea.classList.add('d-none');
+                loadingArea.classList.remove('d-none');
+                tbody.innerHTML = '';
+
+                try {
+                    const response = await fetch('/api/members?page=' + currentPage, {
+                        method: 'GET',
+                        headers: { 'Authorization': 'Bearer ' + token, 'Accept': 'application/json' }
+                    });
+                    if (response.status === 401) { logOut(); return; }
+                    if (!response.ok) { showAlert('Something went wrong while loading members.'); return; }
+
+                    const data = await response.json();
+                    const members = (data && data.data) || [];
+                    const meta = (data && data.meta) || null;
+
+                    if (members.length === 0) {
+                        emptyArea.classList.remove('d-none');
+                        paginationEl.innerHTML = '';
+                    } else {
+                        renderRows(members);
+                        renderPagination(meta);
+                    }
+                } catch (err) {
+                    showAlert('Unable to load members. Please try again.');
+                } finally {
+                    loadingArea.classList.add('d-none');
+                }
+            }
+// ---------- Add / Edit modal ----------
+            function resetForm() {
+                memberIdInput.value = '';
+                modalTitle.textContent = 'Add Member';
+                modalAlert.classList.add('d-none');
+                modalSuccess.classList.add('d-none');
+                form.classList.remove('was-validated');
+                FIELD_IDS.forEach(function (name) {
+                    fieldInput(name).classList.remove('is-invalid');
+                    fieldError(name).textContent = '';
+                });
+                fieldInput('full_name').value = '';
+                fieldInput('email').value = '';
+                fieldInput('phone').value = '';
+                fieldInput('status').value = 'Active';
+                fieldInput('membership_date').value = '';
+                fieldInput('address').value = '';
+            }
+
+            async function openEdit(id) {
+                resetForm();
+                modalTitle.textContent = 'Edit Member';
+                try {
+                    const response = await fetch('/api/members/' + id, {
+                        method: 'GET',
+                        headers: { 'Authorization': 'Bearer ' + token, 'Accept': 'application/json' }
+                    });
+                    if (response.status === 401) { logOut(); return; }
+                    if (response.status === 404) { showAlert('Member not found.'); return; }
+                    if (!response.ok) { showAlert('Failed to load member details.'); return; }
+
+                    const data = await response.json();
+                    const m = data.data;
+                    memberIdInput.value = m.id;
+                    fieldInput('full_name').value = m.full_name || '';
+                    fieldInput('email').value = m.email || '';
+                    fieldInput('phone').value = m.phone || '';
+                    fieldInput('status').value = m.status || 'Active';
+                    fieldInput('membership_date').value = m.membership_date || '';
+                    fieldInput('address').value = m.address || '';
+
+                    var editModal = getMemberModal();
+                    if (editModal) {
+                        editModal.show();
+                    } else {
+                        console.error('Bootstrap modal is not available yet; please try again in a moment.');
+                        showAlert('The edit dialog is not ready yet. Please wait a moment and try again.');
+                    }
+                } catch (err) {
+                    showAlert('Unable to load member details.');
+                }
+            }
+
+            function clearFieldErrors() {
+                FIELD_IDS.forEach(function (name) {
+                    fieldInput(name).classList.remove('is-invalid');
+                    fieldError(name).textContent = '';
+                });
+            }
+            function applyFieldErrors(errors) {
+                FIELD_IDS.forEach(function (name) {
+                    if (errors[name]) {
+                        fieldInput(name).classList.add('is-invalid');
+                        fieldError(name).textContent = errors[name][0];
+                    }
+                });
+            }
+            function collectPayload() {
+                return {
+                    full_name: fieldInput('full_name').value.trim(),
+                    email: fieldInput('email').value.trim(),
+                    phone: fieldInput('phone').value.trim(),
+                    address: fieldInput('address').value.trim(),
+                    membership_date: fieldInput('membership_date').value,
+                    status: fieldInput('status').value
+                };
+            }
+saveBtn.addEventListener('click', async function () {
+                if (!form.checkValidity()) { form.classList.add('was-validated'); return; }
+
+                modalAlert.classList.add('d-none');
+                modalSuccess.classList.add('d-none');
+                clearFieldErrors();
+                saveBtn.disabled = true;
+                saveSpinner.classList.remove('d-none');
+
+                const id = memberIdInput.value;
+                const isEdit = id !== '';
+                const url = isEdit ? ('/api/members/' + id) : '/api/members';
+                const method = isEdit ? 'PUT' : 'POST';
+
+                let response = null;
+                let fetchFailed = false;
+
+                try {
+                    response = await fetch(url, {
+                        method: method,
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json',
+                            'Authorization': 'Bearer ' + token
+                        },
+                        body: JSON.stringify(collectPayload())
+                    });
+                } catch (err) {
+                    fetchFailed = true;
+                }
+
+                if (fetchFailed || !response) {
+                    modalAlert.textContent = 'Unable to reach the server. Please try again.';
+                    modalAlert.classList.remove('d-none');
+                    saveBtn.disabled = false;
+                    saveSpinner.classList.add('d-none');
+                    return;
+                }
+
+                try {
+                    const data = await response.json().catch(() => ({}));
+
+                    if (response.status === 401) { logOut(); return; }
+                    if (response.status === 422) {
+                        applyFieldErrors(data.errors || {});
+                        modalAlert.textContent = data.message || 'Please correct the highlighted fields.';
+                        modalAlert.classList.remove('d-none');
+                        return;
+                    }
+                    if (response.status === 404 && isEdit) {
+                        modalAlert.textContent = 'Member not found.';
+                        modalAlert.classList.remove('d-none');
+                        var notFoundModal = getMemberModal();
+                        if (notFoundModal) { notFoundModal.hide(); }
+                        else { forceCloseModal('memberModal'); }
+                        return;
+                    }
+                    if (isEdit ? response.status !== 200 : response.status !== 201) {
+                        modalAlert.textContent = data.message || 'Something went wrong.';
+                        modalAlert.classList.remove('d-none');
+                        return;
+                    }
+
+                    // The server accepted the save. Refresh the list first, then run
+                    // the remaining UI steps in isolation so a UI failure can never
+                    // hide or undo a successful save.
+                    loadMembers();
+                    try {
+                        showToast(isEdit ? 'Member updated successfully.' : 'Member created successfully.', 'success');
+                    } catch (uiErr) {
+                        console.error('showToast failed:', uiErr);
+                    }
+                    try {
+                        var saveModal = getMemberModal();
+                        if (saveModal) {
+                            saveModal.hide();
+                        } else {
+                            forceCloseModal('memberModal');
+                        }
+                    } catch (uiErr) {
+                        console.error('memberModal.hide() failed:', uiErr);
+                        forceCloseModal('memberModal');
+                    }
+                } catch (err) {
+                    console.error('Save member handling failed:', err);
+                    modalAlert.textContent = 'Something went wrong while saving the member. The server responded with status '
+                        + (response ? response.status : 'unknown')
+                        + (err && err.message ? ' (' + err.message + ')' : '')
+                        + '. Please try again.';
+                    modalAlert.classList.remove('d-none');
+                } finally {
+                    saveBtn.disabled = false;
+                    saveSpinner.classList.add('d-none');
+                }
+            });
+
+            document.querySelector('[data-bs-target="#memberModal"]').addEventListener('click', function () {
+                resetForm();
+            });
+
+            // ---------- Delete ----------
+            confirmDeleteBtn.addEventListener('click', async function () {
+                if (!pendingDeleteId) return;
+                deleteAlert.classList.add('d-none');
+                confirmDeleteBtn.disabled = true;
+                deleteSpinner.classList.remove('d-none');
+
+                try {
+                    const response = await fetch('/api/members/' + pendingDeleteId, {
+                        method: 'DELETE',
+                        headers: { 'Authorization': 'Bearer ' + token, 'Accept': 'application/json' }
+                    });
+                    if (response.status === 401) { logOut(); return; }
+                    if (response.status === 404) {
+                        deleteAlert.textContent = 'Member not found.';
+                        deleteAlert.classList.remove('d-none');
+                        return;
+                    }
+                    if (response.status !== 200) {
+                        deleteAlert.textContent = 'Something went wrong.';
+                        deleteAlert.classList.remove('d-none');
+                        return;
+                    }
+                    var confirmModal = getDeleteModal();
+                    if (confirmModal) { confirmModal.hide(); }
+                    else { forceCloseModal('deleteModal'); }
+                    try {
+                        showToast('Member deleted successfully.', 'success');
+                    } catch (uiErr) {
+                        console.error('showToast failed:', uiErr);
+                    }
+                    loadMembers();
+                } catch (err) {
+                    deleteAlert.textContent = 'Unable to reach the server. Please try again.';
+                    deleteAlert.classList.remove('d-none');
+                } finally {
+                    confirmDeleteBtn.disabled = false;
+                    deleteSpinner.classList.add('d-none');
+                }
+            });
+
+            // ---------------- Bulk Upload (CSV import) ----------------
+            const bulkMemberModalEl = document.getElementById('bulkMemberUploadModal');
+            const memberBulkImportBtn = document.getElementById('memberBulkImportBtn');
+            const memberBulkImportLabel = document.getElementById('memberBulkImportLabel');
+            const memberBulkImportSpinner = document.getElementById('memberBulkImportSpinner');
+            const memberBulkCsvFile = document.getElementById('memberBulkCsvFile');
+            const memberBulkErrors = document.getElementById('memberBulkErrors');
+            let memberBulkUploading = false;
+
+            function setMemberBulkUploading(isUploading) {
+                memberBulkUploading = isUploading;
+                memberBulkImportBtn.disabled = isUploading;
+                memberBulkImportSpinner.classList.toggle('d-none', !isUploading);
+                memberBulkImportLabel.textContent = isUploading ? 'Importing...' : 'Upload & Import';
+            }
+
+            function resetMemberBulkForm() {
+                memberBulkCsvFile.value = '';
+                memberBulkErrors.classList.add('d-none');
+                memberBulkErrors.innerHTML = '';
+                setMemberBulkUploading(false);
+            }
+
+            function showMemberBulkError(html) {
+                memberBulkErrors.innerHTML = html;
+                memberBulkErrors.classList.remove('d-none');
+            }
+
+            document.getElementById('memberDownloadCsvTemplate').addEventListener('click', function () {
+                const header = 'full_name,email,phone,address,membership_date,status';
+                const blob = new Blob([header + '\r\n'], { type: 'text/csv;charset=utf-8;' });
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = 'members-template.csv';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                URL.revokeObjectURL(url);
+            });
+
+            bulkMemberModalEl.addEventListener('hidden.bs.modal', function () {
+                if (!memberBulkUploading) {
+                    resetMemberBulkForm();
+                }
+            });
+
+            memberBulkImportBtn.addEventListener('click', async function () {
+                if (memberBulkUploading) {
+                    return;
+                }
+
+                memberBulkErrors.classList.add('d-none');
+                memberBulkErrors.innerHTML = '';
+
+                const file = memberBulkCsvFile.files && memberBulkCsvFile.files[0];
+                if (!file) {
+                    showMemberBulkError('Please select a CSV file to upload.');
+                    return;
+                }
+
+                if (!file.name.toLowerCase().endsWith('.csv')) {
+                    showMemberBulkError('Only .csv files are allowed.');
+                    return;
+                }
+
+                const formData = new FormData();
+                formData.append('file', file);
+
+                setMemberBulkUploading(true);
+
+                try {
+                    const response = await fetch('/api/members/import', {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': 'Bearer ' + token,
+                            'Accept': 'application/json'
+                        },
+                        body: formData
+                    });
+
+                    if (response.status === 401) {
+                        logOut();
+                        return;
+                    }
+
+                    const data = await response.json().catch(function () { return {}; });
+
+                    if (response.status === 201) {
+                        const importedRows = data.imported_rows || 0;
+                        const totalRows = data.total_rows || importedRows;
+                        try {
+                            if (window.bootstrap && window.bootstrap.Modal) {
+                                bootstrap.Modal.getOrCreateInstance(bulkMemberModalEl).hide();
+                            } else {
+                                forceCloseModal('bulkMemberUploadModal');
+                            }
+                        } catch (uiErr) {
+                            console.error('bulk modal hide failed:', uiErr);
+                            forceCloseModal('bulkMemberUploadModal');
+                        }
+                        resetMemberBulkForm();
+                        showToast(
+                            esc((data.message || 'Members imported successfully.') +
+                            ' Imported ' + importedRows + ' of ' + totalRows + ' rows.'),
+                            'success'
+                        );
+                        loadMembers();
+                        return;
+                    }
+
+                    if (response.status === 422) {
+                        let html = '<strong>' + esc(data.message || 'The import failed. Please fix the errors and try again.') + '</strong>';
+                        if (Array.isArray(data.errors) && data.errors.length > 0) {
+                            html += '<ul class="mb-0 mt-2 ps-3">';
+                            data.errors.forEach(function (error) {
+                                const rowLabel = (error.row === null || error.row === undefined) ? 'File' : 'Row ' + error.row;
+                                const fieldLabel = error.field ? error.field : 'general CSV/file error';
+                                html += '<li>' + esc(rowLabel + ' \u2014 ' + fieldLabel + ' \u2014 ' + (error.message || '')) + '</li>';
+                            });
+                            html += '</ul>';
+                        }
+                        showMemberBulkError(html);
+                        return;
+                    }
+
+                    showMemberBulkError(esc(data.message || 'The import could not be completed. Please try again.'));
+                } catch (err) {
+                    showMemberBulkError('The import could not be completed. Please check your connection and try again.');
+                } finally {
+                    setMemberBulkUploading(false);
+                }
+            });
+
+            // ---------- Init (bootstrap loads after this inline script, so
+            // only warm up modals; loadMembers() must always run) ----------
+            try {
+                getMemberModal();
+                getDeleteModal();
+            } catch (e) {
+                console.error('modal init failed:', e);
+            }
+            loadMembers();
+        })();
+    </script>
+@endsection
